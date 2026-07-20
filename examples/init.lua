@@ -18,25 +18,25 @@ spoon.AppFocus:start()
 hs.loadSpoon("HangulToggle")
 spoon.HangulToggle:start()
 
+-- 입력 포커스가 바뀔 때 캐럿 근처에 현재 입력소스(한/A) 배지 표시 + Spotlight 열리면 영문 전환
+hs.loadSpoon("InputSourceHUD")
+spoon.InputSourceHUD:start()
+
 ---------------------------------------------------------------- 공식 spoon (SpoonInstall 관리)
 
 hs.loadSpoon("SpoonInstall")
 spoon.SpoonInstall.use_syncinstall = true  -- 선언 즉시 동기 설치
 local Install = spoon.SpoonInstall
 
--- 앱 전환 시 입력소스 자동 변경: iTerm/Spotlight 포커스 → 영문
+-- 앱 전환 시 입력소스 자동 변경: iTerm 포커스 → 영문 (Spotlight는 InputSourceHUD가 담당)
 Install:andUse("InputSourceSwitch", {
   fn = function(s)
     s:setApplications({
       ["iTerm2"] = "ABC",
-      ["Spotlight"] = "ABC",
     })
   end,
   start = true,
 })
-
--- 마우스 커서 근처에 현재 입력소스(한/영) 표시
-Install:andUse("InputMethodIndicator", { start = true })
 
 -- 포커스 변경 시 마우스를 해당 창 중앙으로 이동
 Install:andUse("MouseFollowsFocus", { start = true })

@@ -5,7 +5,8 @@
 | Spoon | 기능 |
 |---|---|
 | **AppFocus** | ⌥R(오른쪽 option) 홀드 + 글자 = 실행중 앱 순환 포커스 + 실시간 오버레이 |
-| **HangulToggle** | 오른쪽 command 탭 = 한/영 전환 (입력소스 직접 토글) |
+| **HangulToggle** | 오른쪽 command = 전용 한/영 키 (입력소스 직접 토글) |
+| **InputSourceHUD** | 입력 포커스 변경 시 캐럿 근처에 현재 입력소스(한/A) 배지 표시 + Spotlight 영문 전환 |
 
 ## AppFocus
 
@@ -21,6 +22,13 @@
   (키 이벤트의 cmd 플래그를 벗겨내므로 누른 채 타이핑해도 ⌘단축키로 새지 않음 — 빠른 타이핑 안전)
 - F18/설정앱 우회 없이 `hs.keycodes.currentSourceID()`로 입력소스 직접 전환
 - 두벌식 외 배열은 `:configure({ korean = "..." })`로 변경
+
+## InputSourceHUD
+
+- 입력 포커스가 **다른 필드/창/앱으로 옮겨갈 때** 현재 입력소스(한/A) 배지를 텍스트 캐럿 근처에 0.8초 표시 (마우스 위치와 무관)
+- 위치 폴백: 캐럿 좌표(AX) → 입력 필드 → 포커스 창 중앙 → 화면 중앙
+- Spotlight는 활성화 이벤트를 내지 않아 상시 AX 관찰자로 감지 — 열리면 배지 표시 + (기본값) 영문 전환. 끄려면 `:configure({ spotlightForceSource = nil })`
+- 배지 글자 규칙은 `labelFor(sourceID)` 함수로 커스터마이즈
 
 ## 설치
 
@@ -45,10 +53,10 @@
 
 repo는 배포 가능한 spoon 소스만 가진다. 개인 키 매핑은 `~/.hammerspoon/init.lua`(로컬)에서 `spoon.AppFocus:configure({...})`로 주입 — spoon 수정 없이 매핑 변경 가능하고, `*.lua` 저장 시 자동 리로드된다.
 
-## 배포 / 버저닝
+## 배포 / 버저닝 (스푼별)
 
-- spoon의 `obj.version` 갱신 + git tag (`v1.0.0`)
-- 배포용 zip: `cd Spoons && zip -r AppFocus.spoon.zip AppFocus.spoon` → GitHub Release 첨부. 받는 쪽은 zip을 풀어 더블클릭하면 Hammerspoon이 자동 설치
+- 각 spoon은 독립적으로 버저닝: spoon의 `obj.version` 갱신 → **스푼별 태그** `<이름>-v<버전>` (예: `AppFocus-v1.0.0`) → 해당 spoon zip만 첨부한 Release 발행
+- 배포용 zip: `cd Spoons && zip -r AppFocus.spoon.zip AppFocus.spoon` → 받는 쪽은 zip을 풀어 더블클릭하면 Hammerspoon이 자동 설치
 - repo가 공식 Spoons 저장소와 같은 레이아웃이므로, 추후 [SpoonInstall](https://www.hammerspoon.org/Spoons/SpoonInstall.html) 커스텀 저장소 등록이나 공식 저장소 PR도 가능
 
 ## 롤백
