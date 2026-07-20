@@ -20,7 +20,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "AppFocus"
-obj.version = "1.0.0"
+obj.version = "1.1.0"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -35,35 +35,42 @@ local eprops = hs.eventtap.event.properties
 local RIGHT_ALT_KC = 61     -- hs.keycodes.map.rightalt
 local RIGHT_ALT_BIT = 0x40  -- NX_DEVICERALTKEYMASK
 
-local usage = { keys = {}, apps = {} }
+local usage = { apps = {}, seq = 0 }
 local overlayCanvas, overlayTimer
 local letterByCode = {}
 local swallowedUp = {}      -- 삼킨 keyDown의 keyUp도 짝 맞춰 삼킴 (고아 keyUp 방지)
 
----------------------------------------------------------------- 사용 빈도
+---------------------------------------------------------------- 최근 사용 순번
 
+-- usage.apps[bundleId] = 단조 증가 순번(seq). 값이 클수록 최근에 사용. usage.seq = 최댓값.
 local function loadUsage()
   local ok, data = pcall(hs.json.read, obj.statePath)
   if ok and type(data) == "table" then
-    usage.keys = data.keys or {}
     usage.apps = data.apps or {}
+    usage.seq = data.seq or 0
+    for _, v in pairs(usage.apps) do  -- 구 형식(횟수) 마이그레이션: 최댓값에서 이어받음
+      if type(v) == "number" and v > usage.seq then usage.seq = v end
+    end
   end
 end
 
 local function saveUsage()
   local dir = obj.statePath:match("(.+)/[^/]+$")
-  local parts, acc = {}, ""
-  for seg in dir:gmatch("[^/]+") do parts[#parts + 1] = seg end
-  for _, seg in ipairs(parts) do
+  local acc = ""
+  for seg in dir:gmatch("[^/]+") do
     acc = acc .. "/" .. seg
     hs.fs.mkdir(acc)
   end
   hs.json.write(usage, obj.statePath, true, true)
 end
 
-local function bump(key, appId)
-  usage.keys[key] = (usage.keys[key] or 0) + 1
-  usage.apps[appId] = (usage.apps[appId] or 0) + 1
+local function seqOf(appId)
+  return usage.apps[appId] or 0
+end
+
+local function bump(appId)
+  usage.seq = usage.seq + 1
+  usage.apps[appId] = usage.seq
   saveUsage()
 end
 
@@ -85,7 +92,7 @@ local function wordInitials(s, set)
   return set
 end
 
---- key: "i"(소문자) 또는 "I"(shift 변형). 실행중 후보를 디스크명 알파벳순으로 반환.
+--- key: "i"(소문자) 또는 "I"(shift 변형). 실행중 후보를 최근 사용순(미사용은 알파벳순)으로 반환.
 function obj:candidatesFor(key)
   local letter = key:lower()
   local aliases = {}
@@ -107,7 +114,12 @@ function obj:candidatesFor(key)
       end
     end
   end
-  table.sort(out, function(a, b) return a.disk:lower() < b.disk:lower() end)
+  -- 최근 사용순(seq 내림차순), 미사용끼리는 알파벳순
+  table.sort(out, function(a, b)
+    local sa, sb = seqOf(a.id), seqOf(b.id)
+    if sa ~= sb then return sa > sb end
+    return a.disk:lower() < b.disk:lower()
+  end)
   return out
 end
 
@@ -120,35 +132,53 @@ local function activate(cand)
   end
 end
 
+-- 진입 = 최근 사용순 1위로, 연속 = 순환. 순환 순서는 '진입 시점의 최근순'을 스냅샷으로
+-- 고정한 링을 따른다 (활성화할 때마다 seq가 바뀌어도 순서가 흔들려 핑퐁하지 않도록).
 function obj:handleKey(key)
-  local cands = self:candidatesFor(key)
+  local cands = self:candidatesFor(key)  -- 최근 사용순
+  if #cands == 0 then return end         -- 매칭되는 실행중 앱 없음 → no-op
 
-  if #cands == 0 then return end  -- 매칭되는 실행중 앱 없음 → no-op (실행 기능 없음)
+  local byId = {}
+  for _, c in ipairs(cands) do byId[c.id] = c end
 
   local front = hs.application.frontmostApplication()
-  local frontIdx
+  local frontId
   if front then
-    for i, c in ipairs(cands) do
-      if c.app:pid() == front:pid() then frontIdx = i; break end
+    for _, c in ipairs(cands) do
+      if c.app:pid() == front:pid() then frontId = c.id; break end
     end
   end
 
+  local ring = self._ring
+  local continuing = ring and ring.key == key and frontId and ring.ids[ring.pos] == frontId
+
   local target
-  if frontIdx then
-    -- 이미 후보 중 하나를 보는 중 → 알파벳 링에서 다음 (순환 순서는 빈도와 무관하게 안정적)
-    target = cands[(frontIdx % #cands) + 1]
-  else
-    -- 진입점만 빈도 반영: 최다 사용 후보 (동률이면 알파벳 첫 번째)
-    local best, bestN = 1, -1
-    for i, c in ipairs(cands) do
-      local n = usage.apps[c.id] or 0
-      if n > bestN then best, bestN = i, n end
+  if continuing then
+    -- 고정된 링에서 아직 실행중인 '다음' 후보로 (순환)
+    local n = #ring.ids
+    for step = 1, n do
+      local p = ((ring.pos - 1 + step) % n) + 1
+      local c = byId[ring.ids[p]]
+      if c then ring.pos = p; target = c; break end
     end
-    target = cands[best]
+  end
+
+  if not target then
+    -- 새 진입: 현재 최근순으로 링 스냅샷을 새로 뜬다
+    local ids = {}
+    for i, c in ipairs(cands) do ids[i] = c.id end
+    self._ring = { key = key, ids = ids, pos = 1 }
+    if frontId then
+      -- 이미 이 글자 후보를 보는 중(예: 클릭으로 진입) → 그 다음으로 (순환 시작)
+      local fp = 1
+      for i, id in ipairs(ids) do if id == frontId then fp = i; break end end
+      self._ring.pos = (fp % #ids) + 1
+    end
+    target = byId[ids[self._ring.pos]]
   end
 
   activate(target)
-  bump(key, target.id)
+  bump(target.id)
   if overlayCanvas then self:showOverlay() end  -- 홀드 중이면 목록 갱신
 end
 
@@ -171,16 +201,19 @@ local function textUnits(s)
   return u
 end
 
--- 줄 구성: 매핑된 키 전부 + (동적) 실행중 앱의 첫 글자. 키 사용 빈도순 정렬.
+-- 줄 구성: 매핑된 키 전부 + (동적) 실행중 앱의 첫 글자. 최근 사용순 정렬.
 local function overlayText()
   local rows, added = {}, {}
   local function addRow(key)
     if added[key] then return end
     added[key] = true
-    local cands = obj:candidatesFor(key)
+    local cands = obj:candidatesFor(key)  -- 최근 사용순
     local aliases = obj.keys[key] or {}
     if #cands == 0 and #aliases == 0 then return end
-    rows[#rows + 1] = { key = key, cands = cands, aliases = aliases, n = usage.keys[key] or 0 }
+    -- 줄의 최근성 = 후보 중 가장 최근 사용 seq (없으면 0)
+    local n = 0
+    for _, c in ipairs(cands) do local s = seqOf(c.id); if s > n then n = s end end
+    rows[#rows + 1] = { key = key, cands = cands, aliases = aliases, n = n }
   end
 
   local sortedKeys = {}

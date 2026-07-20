@@ -11,9 +11,9 @@
 ## AppFocus
 
 - `⌥R + 글자` → 이름의 단어 중 하나가 그 글자로 시작하는(표시명·디스크명, shift 무시) **실행중** 앱으로 포커스 이동 — "Google Chrome"은 `g`·`c` 둘 다 매칭
-- 이미 그 앱을 보고 있으면 **다음 후보로 순환** (예: `i` 반복 → iTerm2 ↔ IntelliJ IDEA)
+- 진입 시 그 글자의 **가장 최근에 쓴 앱**으로 감. 이미 후보 앱을 보고 있으면 **다음 후보로 순환** (진입 시점의 최근순을 고정한 링을 따라 돌아 핑퐁 없음)
 - 매칭되는 실행중 앱이 없으면 **no-op** — 순수 전환기이며 앱 실행 기능은 없음
-- 홀드 중 **실시간 오버레이**: 현재 앱=▸, 사용 빈도순 정렬. 빈도는 `~/.local/state/app-focus/usage.json`
+- 홀드 중 **실시간 오버레이**: 현재 앱=▸, 최근 사용순 정렬. 사용 순번은 `~/.local/state/app-focus/usage.json`
 - 선택 설정: 첫 글자가 다른 앱을 특정 키의 순환에 포함 — `spoon.AppFocus:configure({ keys = { c = { "Google Chrome" } } })`
 
 ## HangulToggle
