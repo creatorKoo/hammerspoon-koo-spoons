@@ -7,6 +7,7 @@
 | **AppFocus** | ⌥R(오른쪽 option) 홀드 + 글자 = 실행중 앱 순환 포커스 + 실시간 오버레이 |
 | **HangulToggle** | 오른쪽 command = 전용 한/영 키 (입력소스 직접 토글) |
 | **InputSourceHUD** | 입력 포커스 변경 시 캐럿 근처에 현재 입력소스(한/A) 배지 표시 + Spotlight 영문 전환 |
+| **WindowFit** | 지정 앱 창이 열릴 때 메인 모니터 가용 영역에 맞춰 자동 리사이즈 (Stage Manager 여백 유지) |
 
 ## AppFocus
 
@@ -23,11 +24,21 @@
 - F18/설정앱 우회 없이 `hs.keycodes.currentSourceID()`로 입력소스 직접 전환
 - 두벌식 외 배열은 `:configure({ korean = "..." })`로 변경
 
+## InputSourceHUD
+
 - 입력 포커스가 **다른 필드/창/앱으로 옮겨갈 때** macOS 네이티브 입력소스 인디케이터를 캐럿 옆에 잠깐 띄운다. 원리: 다른 소스로 전환했다 즉시 되돌리는 "플립"으로 네이티브 UI를 유발 (커스텀 오버레이 없음, 최종 소스는 그대로)
 - **전체화면 코너 배지**: 전체화면 창(메뉴바 숨김)일 때 화면 우상단에 현재 입력소스(한/A)를 아주 투명하게 상시 표시. 캐럿·플립에 의존하지 않아 Slack·Chrome 같은 웹 기반 입력창에서도 항상 보임. 창모드에선 메뉴바에 한/영이 보이므로 자동 숨김
 - Spotlight는 활성화 이벤트를 내지 않아 상시 AX 관찰자로 감지 — 열리면 (기본값) 영문 전환, 닫히면 이전 소스 복원
 - 텍스트 필드 포커스 변경만 반응(타이핑/캐럿 이동은 무시). 웹 기반 필드는 macOS가 네이티브 인디케이터를 못 그려 캐럿 표시가 안 되지만 전체화면이면 코너 배지가 대신 보여줌
 - 커스터마이즈: `:configure({ spotlightForceSource = nil })`(Spotlight 자동전환 끔), `cornerBadge=false`(코너 배지 끔), `cornerFullscreenOnly=false`(창모드에서도 코너 배지), `cornerAlpha`·`cornerSize`, `labelFor(sourceID)`(배지 글자)
+
+## WindowFit
+
+- 지정한 앱(`:configure({ apps = { "Citrix Viewer" } })`)의 창이 **생성될 때** 메인 모니터의 가용 영역(메뉴바·Dock 제외)에 맞춰 자동 리사이즈 — macOS 전체화면이 아닌 "큰 일반 창"
+- 왼쪽엔 `leftInset`(기본 75px)만큼 여백을 남겨 Stage Manager 스트립이 반쯤 보이게 함 (값 조절로 튜닝)
+- 메인 모니터 밖의 창·macOS 전체화면 창·팝업은 건드리지 않음. 적용은 생성 시 1회 — 이후 수동 리사이즈 존중
+- 크기를 스스로 복원하는 앱(Citrix 등) 대비: `applyDelay`(기본 0.3초) 후 적용 + 1초 뒤 1회 재확인
+- 지금 떠 있는 창 일괄 정리: `hs -c 'spoon.WindowFit:applyAll()'`
 
 ## 설치
 

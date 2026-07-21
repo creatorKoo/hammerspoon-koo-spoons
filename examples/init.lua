@@ -22,6 +22,11 @@ spoon.HangulToggle:start()
 hs.loadSpoon("InputSourceHUD")
 spoon.InputSourceHUD:start()
 
+-- 지정 앱 창이 열릴 때 메인 모니터 가용 영역(메뉴바·Dock 제외)에 맞춰 자동 리사이즈.
+-- 왼쪽엔 Stage Manager 스트립이 반쯤 보이게 여백 유지 (leftInset으로 튜닝)
+hs.loadSpoon("WindowFit")
+spoon.WindowFit:configure({ apps = { "Citrix Viewer" } }):start()
+
 ---------------------------------------------------------------- 공식 spoon (SpoonInstall 관리)
 
 hs.loadSpoon("SpoonInstall")
