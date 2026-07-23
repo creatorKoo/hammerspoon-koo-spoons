@@ -1,17 +1,25 @@
 --- === InputSourceHUD ===
 ---
---- 입력 포커스가 바뀔 때(다른 필드/창/앱으로 이동) macOS **네이티브** 입력소스
---- 인디케이터(캐럿 옆 한/A 배지)를 띄운다.
+--- 입력 포커스가 바뀔 때(다른 필드/창/앱으로 이동) 현재 입력소스(한/A) 배지를
+--- 포커스된 화면 중앙에 잠깐 표시한다. 전체화면(메뉴바 숨김)일 때는 화면 우상단에
+--- 상시 코너 배지도 함께 표시한다.
 ---
---- 원리: macOS는 입력소스가 "전환"될 때만 네이티브 인디케이터를 보여주므로,
---- 포커스 변경 시 다른 소스로 전환했다가 즉시 원래 소스로 되돌리는 플립을 수행한다.
---- 최종 상태는 그대로고, 인디케이터는 현재 소스를 표시한다. 위치·디자인은 macOS가
---- 알아서 처리하므로(캐럿 추적 포함) 별도 좌표 계산이 필요 없다.
+--- 설계 노트: v1.0은 자체 캔버스 배지, v1.1은 입력소스를 잠깐 전환했다 되돌리는
+--- '플립'으로 macOS 네이티브 인디케이터를 빌려 쓰는 방식이었다. 플립은 캐럿 추적이
+--- 완벽한 대신 실제 소스를 두 번 바꾸는 부작용(전환 순간 타이핑 오입력 위험,
+--- 외부·앱별 자동 전환과의 조율 로직 비대화)이 있어 v1.2에서 자체 배지로 복귀했다.
+--- 배지 위치는 화면 중앙 고정: v1.0의 캐럿 좌표(AXBoundsForRange) 추정은
+--- 웹/Electron 필드에서 자주 깨진다 — 예: Electron AXTextField가 range는 주면서
+--- bounds로 퇴화 좌표 (0,33) 0×0을 반환해 배지가 화면 구석에 떴다. 앱마다 실패
+--- 방식이 달라 가드로 못 막으므로, 항상 같은 자리(중앙)가 예측 가능해서 낫다
+--- (macOS 지구본 입력소스 HUD와 같은 접근).
+--- 한영 키·앱별 자동 전환 같은 '실제 전환'은 macOS가 네이티브 캡슐을 직접 띄우므로
+--- 자체 배지를 중복 표시하지 않는다 (inputSourceChanged 훅은 코너 라벨 갱신 전용).
 ---
---- 트리거: 앱 활성화 + 포커스 UI 요소 변경(AXFocusedUIElementChanged).
---- Spotlight: 일반 앱과 달리 활성화 이벤트를 내지 않으므로 프로세스에 상시 AX 관찰자를
---- 부착해 감지하고, `spotlightForceSource`가 설정돼 있으면 열릴 때 그 입력소스로 자동
---- 전환한다 (실제 전환이므로 인디케이터도 자연히 표시됨).
+--- 트리거: 앱 활성화(항상 표시) + 포커스 UI 요소 변경(AX 알림 4종 — Electron/웹의
+--- 동적 auto-focus 커버, 포커스 요소 동일성 게이트로 타이핑 노이즈 차단).
+--- Spotlight: 활성화 이벤트를 내지 않으므로 상시 AX 관찰자로 감지하고,
+--- `spotlightForceSource`가 설정돼 있으면 열릴 때 그 소스로 전환·닫히면 복원한다.
 ---
 --- 사용 예 (~/.hammerspoon/init.lua):
 ---   hs.loadSpoon("InputSourceHUD")
@@ -22,28 +30,25 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "InputSourceHUD"
-obj.version = "1.1.1"
+obj.version = "1.2.0"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 --- 설정 (configure로 덮어쓰기)
-obj.readDelay = 0.1        -- 포커스 이벤트 후 플립까지 지연 (앱별 자동 전환이 먼저 끝나게)
-obj.flipDelay = 0.05       -- 다른 소스로 갔다가 되돌아오기까지 간격(초)
-obj.suppressWindow = 0.5   -- 이 시간(초) 내 외부 소스 전환이 있었으면 즉시 플립하지 않고 확인 플립으로 미룸
-obj.retryDelay = 0.2       -- 확인 플립까지 대기(초) — 전환 직후 캐럿이 자리잡은 뒤 확실히 표시
-obj.english = "com.apple.keylayout.ABC"                 -- 플립 상대 소스 (현재가 한국어일 때)
-obj.korean = "com.apple.inputmethod.Korean.2SetKorean"  -- 플립 상대 소스 (현재가 영문일 때)
+obj.duration = 0.8         -- 중앙 배지 표시 시간(초)
+obj.size = 64              -- 중앙 배지 한 변 크기(pt)
+obj.alpha = 0.45           -- 중앙 배지 배경 불투명도 (낮을수록 투명)
+obj.readDelay = 0.1        -- 포커스 이벤트 후 소스 읽기까지 지연 (앱별 자동 전환이 먼저 끝나게)
 obj.spotlightForceSource = "com.apple.keylayout.ABC"    -- Spotlight 열릴 때 전환할 소스. nil이면 끔
 
 -- 코너 배지: 전체화면(메뉴바 숨김)일 때 현재 입력소스를 화면 우상단에 상시 표시.
--- 캐럿 위치·플립에 의존하지 않으므로 Slack·Chrome 같은 웹 기반 필드에서도 항상 보인다.
 obj.cornerBadge = true            -- 코너 배지 사용
 obj.cornerFullscreenOnly = true   -- 전체화면 창일 때만 (창모드는 메뉴바에 한/영이 보임)
 obj.cornerSize = 34               -- 배지 한 변 크기(pt)
 obj.cornerAlpha = 0.35            -- 배경 불투명도 (낮을수록 투명; 흰 글자 대비 확보용)
 obj.cornerMargin = 8              -- 화면 우상단 여백(pt)
 
---- 입력소스 ID → 코너 배지 글자 (커스터마이즈 가능)
+--- 입력소스 ID → 배지 글자 (중앙·코너 배지 공용, 커스터마이즈 가능)
 function obj.labelFor(sourceID)
   if sourceID:find("Korean", 1, true) or sourceID:find("Hangul", 1, true) then return "한" end
   return "A"
@@ -51,68 +56,82 @@ end
 
 local ax = require("hs.axuielement")
 
----------------------------------------------------------------- 네이티브 인디케이터 플립
-
--- 다른 소스로 전환했다가 원래 소스로 복귀 → macOS 인디케이터가 현재 소스로 표시됨
-function obj:flash()
-  local now = hs.timer.secondsSinceEpoch()
-  if now < (self.flipUntil or 0) then return end
-  local cur = hs.keycodes.currentSourceID() or ""
-  local other
-  if cur:find("Korean", 1, true) or cur:find("Hangul", 1, true) then
-    other = self.english
-  else
-    other = self.korean
-  end
-  -- 이 시각까지의 소스 변경 알림은 우리 플립이 낸 것이므로 '외부 전환'으로 치지 않음
-  -- (버퍼를 짧게 유지해 빠른 연속 앱 전환에서도 매번 표시되게)
-  self.flipUntil = now + self.flipDelay + 0.2
-  hs.keycodes.currentSourceID(other)
-  hs.timer.doAfter(self.flipDelay, function()
-    hs.keycodes.currentSourceID(cur)
-  end)
-end
+---------------------------------------------------------------- 중앙 배지
 
 local function focusedElement()
   return ax.systemWideElement():attributeValue("AXFocusedUIElement")
 end
 
--- 포커스된 요소가 텍스트 입력 가능한지 (버튼 등 비텍스트 포커스에는 플립하지 않음)
-local function isTextFocused(el)
-  el = el or focusedElement()
+-- 포커스된 요소가 텍스트 입력 가능한지 (버튼 등 비텍스트 포커스에는 표시하지 않음)
+local function isTextFocused()
+  local el = focusedElement()
   if not el then return false end
   local ok, range = pcall(function() return el:attributeValue("AXSelectedTextRange") end)
   return ok and range ~= nil
 end
 
--- requireText=true면 텍스트 입력 요소에 포커스가 있을 때만 플립.
--- 방금 입력소스가 '실제로' 바뀐 경우(예: InputSourceSwitch의 앱별 자동 전환)는
--- 네이티브 인디케이터가 이미 떠 있으므로 플립을 생략해 이중 깜빡임을 막는다.
-function obj:_scheduleFlash(requireText)
-  if self.pending then self.pending:stop() end
-  local before = hs.keycodes.currentSourceID()
+-- 배지를 포커스 화면(없으면 메인 화면) 중앙에 그리고 duration 후 페이드아웃.
+-- 표시할 때마다 새 캔버스를 만들므로 디스플레이 구성 변경으로 캔버스 창이
+-- 죽는 문제(코너 배지의 screenWatcher 참고)와 무관.
+function obj:_draw()
+  if self.canvas then self.canvas:delete(); self.canvas = nil end
+  if self.hideTimer then self.hideTimer:stop(); self.hideTimer = nil end
 
-  local attempt
-  attempt = function(isRetry)
-    self.pending = nil
-    -- 방금 우리 플립이 표시했으면 생략 (플립 중간에 잡힌 트리거의 오탐도 방지)
-    if hs.timer.secondsSinceEpoch() < (self.flipUntil or 0) then return end
-    if requireText and not isTextFocused() then return end
-    if not isRetry then
-      -- 외부/자동(macOS 문서별 전환, InputSourceSwitch 등) 소스 전환 직후:
-      -- 인디케이터가 실제로 떴는지 알 수 없으므로(캐럿이 자리잡기 전이면 조용히 지나감)
-      -- 즉시 플립하지 않고 잠시 뒤 '확인 플립' 1회로 미룬다 → 항상 표시 보장.
-      local changed = hs.keycodes.currentSourceID() ~= before
-      local recent = hs.timer.secondsSinceEpoch() - (self.lastExternalChange or 0) < self.suppressWindow
-      if changed or recent then
-        self.pending = hs.timer.doAfter(self.retryDelay, function() attempt(true) end)
-        return
-      end
-    end
-    self:flash()
+  local win = hs.window.focusedWindow()
+  local scr = (win and win:screen()) or hs.screen.mainScreen()
+  local f = scr:frame()
+  local S = self.size
+  local x = f.x + (f.w - S) / 2
+  local y = f.y + (f.h - S) / 2
+  local label = self.labelFor(hs.keycodes.currentSourceID() or "")
+
+  local c = hs.canvas.new({ x = x, y = y, w = S, h = S })
+  c[1] = {
+    type = "rectangle", action = "fill",
+    fillColor = { red = 0.07, green = 0.08, blue = 0.10, alpha = self.alpha },
+    roundedRectRadii = { xRadius = S * 0.22, yRadius = S * 0.22 },
+  }
+  c[2] = {
+    type = "text", text = label,
+    textSize = S * 0.5, textColor = { hex = "#e6edf3" }, textAlignment = "center",
+    textFont = ".AppleSystemUIFontBold",
+  }
+  -- 글자 세로 '광학' 중앙 정렬: 라인박스를 그대로 가운데 두면 글자가 안 쓰는
+  -- 디센더 공간(baseline 아래) 때문에 글자가 위로 치우쳐 배지가 세로로 길어 보인다.
+  -- 글리프 몸통(capHeight, 한글 몸통도 유사)이 중앙에 오도록 baseline을
+  -- (S+capHeight)/2에 배치 — 프레임 상단에서 baseline까지가 ascender이므로 역산.
+  local fi = hs.styledtext.fontInfo({ name = ".AppleSystemUIFontBold", size = S * 0.5 })
+  local y2 = (S + fi.capHeight) / 2 - fi.ascender
+  c[2].frame = { x = 0, y = y2, w = S, h = fi.ascender - fi.descender + 2 }
+  c:level(hs.canvas.windowLevels.overlay)
+  c:behaviorAsLabels({ "canJoinAllSpaces", "stationary" })
+  c:show()
+  self.canvas = c
+  self.hideTimer = hs.timer.doAfter(self.duration, function()
+    if self.canvas then self.canvas:delete(0.15); self.canvas = nil end
+  end)
+end
+
+-- requireText=true면 텍스트 입력 요소에 포커스가 있을 때만 표시 (버튼 등 비텍스트 포커스엔 안 뜸).
+-- 짧은 시간 내 중복 트리거(앱 활성화 + 창 포커스 + AX 알림)는 pending 하나로 병합하되,
+-- 하나라도 '항상 표시'(requireText=false)면 그쪽을 따른다 — 앱 전환 표시가 게이트에 먹히지 않게.
+function obj:_scheduleShow(requireText)
+  if self.pending then
+    self.pending:stop()
+    requireText = requireText and self._pendingRequireText
   end
+  self._pendingRequireText = requireText
+  self.pending = hs.timer.doAfter(self.readDelay, function()
+    self.pending = nil
+    if requireText and not isTextFocused() then return end
+    self:_draw()
+  end)
+end
 
-  self.pending = hs.timer.doAfter(self.readDelay, function() attempt(false) end)
+--- 수동/테스트용 즉시 표시
+function obj:show()
+  self:_scheduleShow(false)
+  return self
 end
 
 ---------------------------------------------------------------- 관찰자
@@ -140,7 +159,7 @@ function obj:_attachObserver(app)
     if obj._lastEl then pcall(function() same = (el == obj._lastEl) end) end
     if same then return end
     obj._lastEl = el
-    obj:_scheduleFlash(true)
+    obj:_scheduleShow(true)
   end)
   local appEl = ax.applicationElement(app)
   local any = false
@@ -150,7 +169,8 @@ function obj:_attachObserver(app)
   if any then pcall(function() obs:start() end); self.obs = obs end
 end
 
--- Spotlight 닫힘 처리: 강제 전환했던 경우 이전 소스 복원 (복원 자체가 인디케이터 표시)
+-- Spotlight 닫힘 처리: 강제 전환했던 경우 이전 소스 복원
+-- (복원은 실제 전환이므로 macOS 네이티브 캡슐이 현재 캐럿 위치에 표시됨)
 function obj:_spotlightClosed()
   if not self.spotlightOpen then return end
   self.spotlightOpen = false
@@ -172,7 +192,7 @@ function obj:_startSpotlightPoll()
   end)
 end
 
--- Spotlight 상시 감시: 열리면 (옵션) 입력소스 강제 전환 + 이전 소스 기억, 닫히면 복원
+-- Spotlight 상시 감시: 열리면 (옵션) 입력소스 강제 전환 + 이전 소스 기억 + 배지 표시, 닫히면 복원
 function obj:_ensureSpotlight()
   local sp = hs.application.get("Spotlight")
   if not sp then return end
@@ -192,14 +212,12 @@ function obj:_ensureSpotlight()
           local cur = hs.keycodes.currentSourceID()
           if cur ~= obj.spotlightForceSource then
             obj.spotlightPrevSource = cur                          -- 닫힐 때 복원할 값
-            hs.keycodes.currentSourceID(obj.spotlightForceSource)  -- 실제 전환 → 인디케이터 표시
+            hs.keycodes.currentSourceID(obj.spotlightForceSource)  -- 실제 전환 (네이티브 캡슐도 뜸)
           else
             obj.spotlightPrevSource = nil
-            obj:flash()  -- 이미 강제값이면 플립으로 표시만
           end
-        else
-          obj:flash()
         end
+        obj:_scheduleShow(false)  -- 전환 여부와 무관하게 자체 배지 표시
         obj:_startSpotlightPoll()
       elseif not isOpen and obj.spotlightOpen then
         obj:_spotlightClosed()
@@ -266,30 +284,29 @@ function obj:configure(opts)
 end
 
 function obj:start()
-  -- 외부(사용자 한영키, 앱별 자동 전환 등) 소스 변경 시각 기록 — 우리 플립은 flipUntil로 제외
+  -- 실제 전환(한영 키, 앱별 자동 전환 등)은 macOS가 네이티브 캡슐을 직접 띄우므로
+  -- 여기서는 코너 배지 라벨만 갱신한다.
   -- 주의: hs.keycodes.inputSourceChanged는 HS 전역 1개 슬롯이라 이 spoon이 점유함
   self._lastSeenSource = hs.keycodes.currentSourceID()
   hs.keycodes.inputSourceChanged(function()
-    if hs.timer.secondsSinceEpoch() < (obj.flipUntil or 0) then return end  -- 우리 플립 중엔 무시(코너 깜빡임 방지)
     local cur = hs.keycodes.currentSourceID()
-    if cur == obj._lastSeenSource then return end  -- 실제 변경만 기록 (재통지 무시)
+    if cur == obj._lastSeenSource then return end  -- 실제 변경만 반응 (재통지 무시)
     obj._lastSeenSource = cur
-    obj.lastExternalChange = hs.timer.secondsSinceEpoch()
     obj:_refreshCorner()  -- 코너 배지 라벨 갱신
   end)
 
   self.appWatcher = hs.application.watcher.new(function(_, event, app)
     if event == hs.application.watcher.activated then
       obj:_attachObserver(app)
-      obj:_scheduleFlash(true)  -- 텍스트 포커스가 있을 때만 (인디케이터는 캐럿이 있어야 의미)
-      obj:_ensureSpotlight()           -- Spotlight 재시작 대비 재부착
+      obj:_scheduleShow(false)  -- 앱 전환은 항상 표시 (비텍스트 포커스라도)
+      obj:_ensureSpotlight()    -- Spotlight 재시작 대비 재부착
     end
   end)
   self.appWatcher:start()
 
   -- cmd+tab 등 창 포커스 변경 커버 (앱 활성화 이벤트가 누락되는 경로 보강, 트리거는 pending으로 병합됨)
   self._winFn = function()
-    obj:_scheduleFlash(true)
+    obj:_scheduleShow(true)
     obj:_refreshCorner()  -- 창/화면/전체화면 상태 바뀌었을 수 있으니 코너 갱신
   end
   self.winFilter = hs.window.filter.default
@@ -328,6 +345,8 @@ function obj:stop()
   if self.screenWatcher then self.screenWatcher:stop(); self.screenWatcher = nil end
   if self.screenSettle then self.screenSettle:stop(); self.screenSettle = nil end
   if self.corner then self.corner:delete(); self.corner = nil end
+  if self.canvas then self.canvas:delete(); self.canvas = nil end
+  if self.hideTimer then self.hideTimer:stop(); self.hideTimer = nil end
   if self.appWatcher then self.appWatcher:stop(); self.appWatcher = nil end
   if self.obs then pcall(function() self.obs:stop() end); self.obs = nil end
   if self.spObs then pcall(function() self.spObs:stop() end); self.spObs = nil end

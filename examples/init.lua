@@ -18,7 +18,7 @@ spoon.AppFocus:start()
 hs.loadSpoon("HangulToggle")
 spoon.HangulToggle:start()
 
--- 입력 포커스가 바뀔 때 캐럿 근처에 현재 입력소스(한/A) 배지 표시 + Spotlight 열리면 영문 전환
+-- 입력 포커스가 바뀔 때 화면 중앙에 현재 입력소스(한/A) 배지 표시 + Spotlight 열리면 영문 전환
 hs.loadSpoon("InputSourceHUD")
 spoon.InputSourceHUD:start()
 
