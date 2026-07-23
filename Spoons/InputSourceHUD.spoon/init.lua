@@ -22,7 +22,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "InputSourceHUD"
-obj.version = "1.1.0"
+obj.version = "1.1.1"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -299,6 +299,20 @@ function obj:start()
     hs.window.filter.windowUnfullscreened,
   }, self._winFn)
 
+  -- 디스플레이 구성 변경(모니터 연결/해제) 시 코너 캔버스 재생성.
+  -- 기존 캔버스 창은 사라진 화면에 묶여 isShowing()=true인 채 렌더링만 멈춘
+  -- 좀비가 될 수 있고(이동·show()로는 복구 불가), 파괴 후 재생성만이 복구 수단.
+  -- 재구성 직후는 화면·포커스 상태가 유동적이라 잠시 뒤에 갱신한다 (연속 발화 병합).
+  self.screenWatcher = hs.screen.watcher.new(function()
+    if obj.corner then obj.corner:delete(); obj.corner = nil end
+    if obj.screenSettle then obj.screenSettle:stop() end
+    obj.screenSettle = hs.timer.doAfter(1.0, function()
+      obj.screenSettle = nil
+      obj:_refreshCorner()
+    end)
+  end)
+  self.screenWatcher:start()
+
   self:_attachObserver(hs.application.frontmostApplication())
   self:_ensureSpotlight()
   self:_refreshCorner()
@@ -311,6 +325,8 @@ function obj:stop()
     pcall(function() self.winFilter:unsubscribe(self._winFn) end)
     self.winFilter, self._winFn = nil, nil
   end
+  if self.screenWatcher then self.screenWatcher:stop(); self.screenWatcher = nil end
+  if self.screenSettle then self.screenSettle:stop(); self.screenSettle = nil end
   if self.corner then self.corner:delete(); self.corner = nil end
   if self.appWatcher then self.appWatcher:stop(); self.appWatcher = nil end
   if self.obs then pcall(function() self.obs:stop() end); self.obs = nil end
