@@ -30,7 +30,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "InputSourceHUD"
-obj.version = "1.2.0"
+obj.version = "1.2.1"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -46,7 +46,9 @@ obj.cornerBadge = true            -- 코너 배지 사용
 obj.cornerFullscreenOnly = true   -- 전체화면 창일 때만 (창모드는 메뉴바에 한/영이 보임)
 obj.cornerSize = 34               -- 배지 한 변 크기(pt)
 obj.cornerAlpha = 0.35            -- 배경 불투명도 (낮을수록 투명; 흰 글자 대비 확보용)
-obj.cornerMargin = 8              -- 화면 우상단 여백(pt)
+obj.cornerMargin = 8              -- 우측 여백(pt)
+obj.cornerMarginTop = 8           -- 메뉴바 아래부터 재는 상단 여백(pt). 전체화면에서 메뉴바를
+                                  -- 불러냈을 때 시계를 가리지 않도록 메뉴바 높이는 자동 반영됨
 
 --- 입력소스 ID → 배지 글자 (중앙·코너 배지 공용, 커스터마이즈 가능)
 function obj.labelFor(sourceID)
@@ -251,8 +253,11 @@ function obj:_refreshCorner()
   local scr = (win and win:screen()) or hs.screen.mainScreen()
   local f = scr:fullFrame()
   local S = self.cornerSize
+  -- x는 fullFrame(오른쪽 끝은 메뉴바 유무와 무관), y는 frame(메뉴바 제외 영역) 기준.
+  -- 전체화면에서 커서를 올려 메뉴바가 내려와도 시계/메뉴 아이콘을 가리지 않는다
+  -- (노치 모델처럼 메뉴바가 두꺼운 화면에도 자동으로 맞는다).
   local x = f.x + f.w - S - self.cornerMargin
-  local y = f.y + self.cornerMargin
+  local y = scr:frame().y + self.cornerMarginTop
   local label = self.labelFor(hs.keycodes.currentSourceID() or "")
 
   if not self.corner then

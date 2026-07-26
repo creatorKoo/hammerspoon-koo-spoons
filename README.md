@@ -32,7 +32,7 @@
 - **전체화면 코너 배지**: 전체화면 창(메뉴바 숨김)일 때 화면 우상단에 현재 입력소스를 아주 투명하게 상시 표시. 창모드에선 메뉴바에 한/영이 보이므로 자동 숨김. 모니터 연결/해제 시에도 자동 복구
 - Spotlight는 활성화 이벤트를 내지 않아 상시 AX 관찰자로 감지 — 열리면 (기본값) 영문 전환, 닫히면 이전 소스 복원
 - 텍스트 필드 포커스 변경만 반응(타이핑/캐럿 이동은 무시), 앱 전환은 항상 표시
-- 커스터마이즈: `:configure({ duration = 0.8, size = 64, alpha = 0.45 })`(중앙 배지 표시시간·크기·투명도), `spotlightForceSource = nil`(Spotlight 자동전환 끔), `cornerBadge=false`(코너 배지 끔), `cornerFullscreenOnly=false`(창모드에서도 코너 배지), `cornerAlpha`·`cornerSize`, `labelFor(sourceID)`(배지 글자)
+- 커스터마이즈: `:configure({ duration = 0.8, size = 64, alpha = 0.45 })`(중앙 배지 표시시간·크기·투명도), `spotlightForceSource = nil`(Spotlight 자동전환 끔), `cornerBadge=false`(코너 배지 끔), `cornerFullscreenOnly=false`(창모드에서도 코너 배지), `cornerAlpha`·`cornerSize`·`cornerMargin`/`cornerMarginTop`(코너 배지 우측·상단 여백, 상단은 메뉴바 아래 기준), `labelFor(sourceID)`(배지 글자)
 
 ## WindowFit
 
