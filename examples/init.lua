@@ -54,10 +54,22 @@ if not hs.accessibilityState(true) then
 end
 
 -- *.lua 저장 시 자동 리로드 (개인 설정 + spoon 개발 경로)
-local watchDirs = {
-  hs.configdir,
-  os.getenv("HOME") .. "/Documents/repo/hammerspoon-koo-spoons/Spoons",  -- spoon 소스 repo
-}
+-- spoon 소스 repo 경로는 install.sh가 걸어둔 심볼릭 링크에서 역추적한다.
+-- (FSEvents는 링크를 따라가지 않으므로 링크된 원본 디렉토리를 직접 감시해야 함.
+--  경로를 하드코딩하면 repo를 옮겼을 때 조용히 감시가 끊긴다.)
+local watchDirs = { hs.configdir }
+local spoonsDir = hs.configdir .. "/Spoons"
+local seen = {}
+for name in hs.fs.dir(spoonsDir) do
+  local link = spoonsDir .. "/" .. name
+  if hs.fs.symlinkAttributes(link, "mode") == "link" then
+    local parent = (hs.fs.symlinkAttributes(link, "target") or ""):match("^(.*)/[^/]+$")
+    if parent and not seen[parent] then
+      seen[parent] = true
+      watchDirs[#watchDirs + 1] = parent
+    end
+  end
+end
 ConfigWatchers = {}
 for _, dir in ipairs(watchDirs) do
   ConfigWatchers[#ConfigWatchers + 1] = hs.pathwatcher.new(dir, function(files)
