@@ -78,8 +78,6 @@ repo는 배포 가능한 spoon 소스만 가진다. 개인 키 매핑은 `~/.ham
 ./uninstall.sh   # Karabiner 룰 재활성화 + spoon 링크 제거
 ```
 
-`legacy/global_app_shortcut.json`은 구 Karabiner complex modification (참고용, 시험 기간 후 삭제 예정).
-
 ## 알려진 한계
 
 - 암호 입력 필드(보안 입력) 중에는 macOS가 이벤트 탭을 차단하므로 그 순간 단축키가 동작하지 않음

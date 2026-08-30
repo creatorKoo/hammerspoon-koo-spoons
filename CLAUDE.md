@@ -44,5 +44,4 @@
 
 ## 기타
 
-- `legacy/global_app_shortcut.json`: 구 Karabiner 룰(롤백 참고용, 시험 기간 후 삭제 예정) — 유지보수 대상 아님
 - `install.sh` / `uninstall.sh`: bash + `set -euo pipefail`, Karabiner JSON 조작은 `jq` 사용. install은 룰을 삭제가 아니라 `enabled:false`로 끄고 백업을 남긴다(롤백 가능해야 함).
