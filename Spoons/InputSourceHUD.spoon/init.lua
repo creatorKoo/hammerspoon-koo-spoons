@@ -18,6 +18,11 @@
 ---
 --- 트리거: 앱 활성화(항상 표시) + 포커스 UI 요소 변경(AX 알림 4종 — Electron/웹의
 --- 동적 auto-focus 커버, 포커스 요소 동일성 게이트로 타이핑 노이즈 차단).
+--- v1.2.2: AX 알림 콜백에서는 AX를 호출하지 않는다. AXSelectedTextChanged/AXLayoutChanged는
+--- 많은 앱에서 키 입력마다 오는데, 콜백에서 매번 동기 AX 왕복을 하면 앱이 바쁠 때 HS 메인
+--- 스레드가 막혀 다른 spoon의 eventtap까지 OS가 비활성화할 수 있다(한영 키 유실로 관찰됨).
+--- 알림은 pending 타이머로 병합만 하고, 타이핑이 readDelay 이상 멈춘 뒤 한 번만 AX로
+--- 포커스 요소를 읽어 동일성 게이트를 적용한다 — 연속 타이핑 중엔 AX 호출 0회.
 --- Spotlight: 활성화 이벤트를 내지 않으므로 상시 AX 관찰자로 감지하고,
 --- `spotlightForceSource`가 설정돼 있으면 열릴 때 그 소스로 전환·닫히면 복원한다.
 ---
@@ -30,7 +35,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "InputSourceHUD"
-obj.version = "1.2.1"
+obj.version = "1.2.2"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -65,8 +70,8 @@ local function focusedElement()
 end
 
 -- 포커스된 요소가 텍스트 입력 가능한지 (버튼 등 비텍스트 포커스에는 표시하지 않음)
-local function isTextFocused()
-  local el = focusedElement()
+local function isTextFocused(el)
+  el = el or focusedElement()
   if not el then return false end
   local ok, range = pcall(function() return el:attributeValue("AXSelectedTextRange") end)
   return ok and range ~= nil
@@ -115,17 +120,31 @@ function obj:_draw()
 end
 
 -- requireText=true면 텍스트 입력 요소에 포커스가 있을 때만 표시 (버튼 등 비텍스트 포커스엔 안 뜸).
+-- gateSameEl=true면 포커스 요소가 직전 표시 때와 같으면 표시하지 않음 (AX 알림용 — 같은 필드 안
+-- 타이핑/캐럿 이동 노이즈 차단). 이 판정은 타이머 안에서 하므로 콜백 시점엔 AX 호출이 없다.
 -- 짧은 시간 내 중복 트리거(앱 활성화 + 창 포커스 + AX 알림)는 pending 하나로 병합하되,
--- 하나라도 '항상 표시'(requireText=false)면 그쪽을 따른다 — 앱 전환 표시가 게이트에 먹히지 않게.
-function obj:_scheduleShow(requireText)
+-- 하나라도 '항상 표시'(requireText=false / gateSameEl=false)면 그쪽을 따른다 — 앱 전환 표시가 게이트에 먹히지 않게.
+function obj:_scheduleShow(requireText, gateSameEl)
   if self.pending then
     self.pending:stop()
     requireText = requireText and self._pendingRequireText
+    gateSameEl = gateSameEl and self._pendingGate
   end
   self._pendingRequireText = requireText
+  self._pendingGate = gateSameEl
   self.pending = hs.timer.doAfter(self.readDelay, function()
     self.pending = nil
-    if requireText and not isTextFocused() then return end
+    if requireText then
+      local el = focusedElement()
+      if not el then return end
+      if gateSameEl then
+        local same = false
+        pcall(function() same = (el == self._lastEl) end)
+        if same then return end
+      end
+      self._lastEl = el
+      if not isTextFocused(el) then return end
+    end
     self:_draw()
   end)
 end
@@ -153,15 +172,10 @@ function obj:_attachObserver(app)
   if not app then return end
   local ok, obs = pcall(ax.observer.new, app:pid())
   if not ok then return end
-  obs:callback(function(_, _, notif)
-    -- 포커스 요소가 '실제로 바뀐' 경우만 (같은 필드 안 타이핑/캐럿 이동 노이즈는 무시)
-    local el = focusedElement()
-    if not el then return end
-    local same = false
-    if obj._lastEl then pcall(function() same = (el == obj._lastEl) end) end
-    if same then return end
-    obj._lastEl = el
-    obj:_scheduleShow(true)
+  obs:callback(function()
+    -- 여기서 AX를 호출하지 않는다 (키 입력마다 오는 알림 — 설계 노트 v1.2.2 참고).
+    -- 병합 타이머 안에서 포커스 요소를 한 번 읽어 '실제로 바뀐' 경우만 표시한다.
+    obj:_scheduleShow(true, true)
   end)
   local appEl = ax.applicationElement(app)
   local any = false
