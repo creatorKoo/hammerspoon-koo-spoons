@@ -5,7 +5,7 @@
 | Spoon | 기능 |
 |---|---|
 | **AppFocus** | ⌥R(오른쪽 option) 홀드 + 글자 = 실행중 앱 순환 포커스 + 실시간 오버레이 |
-| **HangulToggle** | 오른쪽 command = 전용 한/영 키 (입력소스 직접 토글) |
+| **HangulToggle** | 오른쪽 command = 전용 한/영 키 (macOS 입력소스 단축키 합성 또는 직접 토글) |
 | **InputSourceHUD** | 입력 포커스 변경 시 화면 중앙에 현재 입력소스(한/A) 배지 표시 + Spotlight 영문 전환 |
 | **WindowFit** | 지정 앱 창이 열릴 때 메인 모니터 가용 영역에 맞춰 자동 리사이즈 (Stage Manager 여백 유지) |
 
@@ -22,8 +22,12 @@
 - 오른쪽 command = **전용 한/영 키** — 누르는 즉시 전환, modifier 기능은 완전히 제거
   (누른 채 타이핑한 키는 삼키고 cmd를 뺀 복사본을 재전송하므로 ⌘단축키로 새지 않음 — 빠른 타이핑 안전)
   단, 암호 필드 같은 보안 입력 구간에선 macOS가 이벤트 탭을 막으므로 그동안은 평범한 ⌘로 동작함
-- F18/설정앱 우회 없이 `hs.keycodes.currentSourceID()`로 입력소스 직접 전환
-- 두벌식 외 배열은 `:configure({ korean = "..." })`로 변경
+- 전환 방식 `switchMode` 두 가지
+  - `"hotkey"` (권장): macOS 키보드 단축키 **"이전 입력 소스 선택"에 걸어둔 키(기본 F18)** 를 rcmd 누름 시점에 합성해 보냄 — 전환이 앱 자신의 키 이벤트 경로에서 일어나 모든 앱에 즉시 반영
+    - 준비: 시스템 설정 > 키보드 > 키보드 단축키 > 입력 소스 > "이전 입력 소스 선택" 켜고 F18 지정
+    - 설정: `spoon.HangulToggle:configure({ switchMode = "hotkey" }):start()` (다른 키면 `hotkey = { mods = {"fn"}, key = "f19" }`)
+  - `"tis"` (기본값, 준비 불필요): `hs.keycodes.currentSourceID()`로 시스템 입력소스를 직접 전환. 단, Chromium/Electron 계열(Chrome·VS Code·Slack 등)은 밖에서 바뀐 소스를 입력창을 다시 클릭하기 전까지 반영하지 않는 경우가 있음(메뉴바는 '한'인데 영어가 찍힘) — 그 증상이 있으면 `"hotkey"`로
+  - 두벌식 외 배열은 tis 모드에서만 관련: `:configure({ korean = "..." })`
 
 ## InputSourceHUD
 

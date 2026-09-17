@@ -15,8 +15,10 @@ hs.loadSpoon("AppFocus")
 spoon.AppFocus:start()
 
 -- 오른쪽 command = 전용 한/영 키 (modifier 기능 제거 — 빠른 타이핑 안전)
+-- switchMode = "hotkey": macOS 단축키 "이전 입력 소스 선택"(F18) 합성 — 모든 앱 즉시 반영 (권장, 단축키 준비 필요)
+-- 준비 없이 쓰려면 configure 없이 :start()만 (tis 모드; Chromium/Electron 앱에서 반영이 늦을 수 있음)
 hs.loadSpoon("HangulToggle")
-spoon.HangulToggle:start()
+spoon.HangulToggle:configure({ switchMode = "hotkey" }):start()
 
 -- 입력 포커스가 바뀔 때 화면 중앙에 현재 입력소스(한/A) 배지 표시 + Spotlight 열리면 영문 전환
 hs.loadSpoon("InputSourceHUD")
