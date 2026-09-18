@@ -24,7 +24,7 @@
   단, 암호 필드 같은 보안 입력 구간에선 macOS가 이벤트 탭을 막으므로 그동안은 평범한 ⌘로 동작함
 - 전환 방식 `switchMode` 두 가지
   - `"hotkey"` (권장): macOS 키보드 단축키 **"이전 입력 소스 선택"에 걸어둔 키(기본 F18)** 를 rcmd 누름 시점에 합성해 보냄 — 전환이 앱 자신의 키 이벤트 경로에서 일어나 모든 앱에 즉시 반영
-    - 준비: 시스템 설정 > 키보드 > 키보드 단축키 > 입력 소스 > "이전 입력 소스 선택" 켜고 F18 지정
+    - 준비: 시스템 설정 > 키보드 > 키보드 단축키 > 입력 소스 > "이전 입력 소스 선택" 켜고 F18 지정 — 미설정이면 시작 시 안내창이 뜨고 "시스템 설정 열기" 버튼으로 바로 이동 (안내 끄기: `setupGuide = false`, 상태 파일 `~/.local/state/HangulToggle/`)
     - 설정: `spoon.HangulToggle:configure({ switchMode = "hotkey" }):start()` (다른 키면 `hotkey = { mods = {"fn"}, key = "f19" }`)
   - `"tis"` (기본값, 준비 불필요): `hs.keycodes.currentSourceID()`로 시스템 입력소스를 직접 전환. 단, Chromium/Electron 계열(Chrome·VS Code·Slack 등)은 밖에서 바뀐 소스를 입력창을 다시 클릭하기 전까지 반영하지 않는 경우가 있음(메뉴바는 '한'인데 영어가 찍힘) — 그 증상이 있으면 `"hotkey"`로
   - 두벌식 외 배열은 tis 모드에서만 관련: `:configure({ korean = "..." })`
