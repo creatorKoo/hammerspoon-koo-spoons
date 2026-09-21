@@ -25,6 +25,10 @@
 --- 포커스 요소를 읽어 동일성 게이트를 적용한다 — 연속 타이핑 중엔 AX 호출 0회.
 --- Spotlight: 활성화 이벤트를 내지 않으므로 상시 AX 관찰자로 감지하고,
 --- `spotlightForceSource`가 설정돼 있으면 열릴 때 그 소스로 전환·닫히면 복원한다.
+--- 끄는 값은 `false`다 — configure({ spotlightForceSource = nil })은 Lua에서 키 자체가
+--- 사라져 병합 루프가 건너뛰므로 아무 효과가 없다.
+--- stop()은 Spotlight용으로 바꿔둔 소스가 있으면 되돌린 뒤 상태를 초기화한다 — 켜고 끄기를
+--- 반복해도(예: 메뉴/스크립트에서 토글) 사용자의 입력소스가 어긋난 채 남지 않게.
 ---
 --- 사용 예 (~/.hammerspoon/init.lua):
 ---   hs.loadSpoon("InputSourceHUD")
@@ -35,7 +39,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "InputSourceHUD"
-obj.version = "1.2.2"
+obj.version = "1.2.3"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -44,7 +48,7 @@ obj.duration = 0.8         -- 중앙 배지 표시 시간(초)
 obj.size = 64              -- 중앙 배지 한 변 크기(pt)
 obj.alpha = 0.45           -- 중앙 배지 배경 불투명도 (낮을수록 투명)
 obj.readDelay = 0.1        -- 포커스 이벤트 후 소스 읽기까지 지연 (앱별 자동 전환이 먼저 끝나게)
-obj.spotlightForceSource = "com.apple.keylayout.ABC"    -- Spotlight 열릴 때 전환할 소스. nil이면 끔
+obj.spotlightForceSource = "com.apple.keylayout.ABC"    -- Spotlight 열릴 때 전환할 소스. false면 끔 (nil은 무효 — 설계 노트)
 
 -- 코너 배지: 전체화면(메뉴바 숨김)일 때 현재 입력소스를 화면 우상단에 상시 표시.
 obj.cornerBadge = true            -- 코너 배지 사용
@@ -303,6 +307,7 @@ function obj:configure(opts)
 end
 
 function obj:start()
+  self:stop()  -- 중복 start 방지: 관찰자·타이머·캔버스를 먼저 정리
   -- 실제 전환(한영 키, 앱별 자동 전환 등)은 macOS가 네이티브 캡슐을 직접 띄우므로
   -- 여기서는 코너 배지 라벨만 갱신한다.
   -- 주의: hs.keycodes.inputSourceChanged는 HS 전역 1개 슬롯이라 이 spoon이 점유함
@@ -356,6 +361,16 @@ function obj:start()
 end
 
 function obj:stop()
+  -- Spotlight 때문에 바꿔둔 소스가 있으면 먼저 복원 (사용자가 직접 바꾼 경우는 존중)
+  if self.spotlightOpen and self.spotlightPrevSource then
+    pcall(function()
+      if hs.keycodes.currentSourceID() == self.spotlightForceSource then
+        hs.keycodes.currentSourceID(self.spotlightPrevSource)
+      end
+    end)
+  end
+  self.spotlightOpen, self.spotlightPrevSource, self.spotlightPid = false, nil, nil
+  self._lastEl, self._pendingRequireText, self._pendingGate = nil, nil, nil
   pcall(function() hs.keycodes.inputSourceChanged(nil) end)
   if self.winFilter and self._winFn then
     pcall(function() self.winFilter:unsubscribe(self._winFn) end)
