@@ -1,13 +1,44 @@
 # hammerspoon-koo-spoons
 
-개인 제작 [Hammerspoon](https://www.hammerspoon.org/) Spoon 모음. 공식 [Hammerspoon/Spoons](https://github.com/Hammerspoon/Spoons) 저장소와 같은 `Spoons/` 레이아웃을 사용한다.
+[Hammerspoon](https://www.hammerspoon.org/) Spoon 모음. macOS에서 **오른쪽 command를 한/영 키로**, **오른쪽 option을 앱 전환 키로** 쓰기 위해 만들었다.
+Spoon은 각각 독립적으로 설치·삭제할 수 있고, 필요한 것만 골라 쓰면 된다.
 
-| Spoon | 기능 |
-|---|---|
-| **AppFocus** | ⌥R(오른쪽 option) 홀드 + 글자 = 실행중 앱 순환 포커스 + 실시간 오버레이 |
-| **HangulToggle** | 오른쪽 command = 전용 한/영 키 (macOS 입력소스 단축키 합성 또는 직접 토글) |
-| **InputSourceHUD** | 입력 포커스 변경 시 화면 중앙에 현재 입력소스(한/A) 배지 표시 + Spotlight 영문 전환 |
-| **WindowFit** | 지정 앱 창이 열릴 때 메인 모니터 가용 영역에 맞춰 자동 리사이즈 (Stage Manager 여백 유지) |
+| Spoon | 기능 | 최신 |
+|---|---|---|
+| **HangulToggle** | 오른쪽 command = 전용 한/영 키. modifier 기능은 제거되어 빠른 타이핑에도 안전 | [Releases](https://github.com/creatorKoo/hammerspoon-koo-spoons/releases?q=HangulToggle) |
+| **AppFocus** | 오른쪽 option 홀드 + 글자 = 실행중 앱 전환/순환 + 실시간 오버레이 | [Releases](https://github.com/creatorKoo/hammerspoon-koo-spoons/releases?q=AppFocus) |
+| **InputSourceHUD** | 입력 포커스가 바뀔 때 화면 중앙에 현재 입력소스(한/A) 배지 + Spotlight 영문 전환 | [Releases](https://github.com/creatorKoo/hammerspoon-koo-spoons/releases?q=InputSourceHUD) |
+| **WindowFit** | 지정 앱 창이 열릴 때 메인 모니터 가용 영역에 맞춰 자동 리사이즈 | [Releases](https://github.com/creatorKoo/hammerspoon-koo-spoons/releases?q=WindowFit) |
+
+## 빠른 설치
+
+1. Hammerspoon 설치: `brew install --cask hammerspoon` 또는 [공식 사이트](https://www.hammerspoon.org/)에서 받아 실행
+2. [Releases](https://github.com/creatorKoo/hammerspoon-koo-spoons/releases)에서 원하는 Spoon의 `*.spoon.zip`을 받아 압축을 풀고 `이름.spoon`을 **더블클릭** → Hammerspoon이 `~/.hammerspoon/Spoons/`에 설치
+3. `~/.hammerspoon/init.lua`에 아래처럼 쓰고 저장 (파일이 없으면 새로 만든다. 전체 예시는 [examples/init.lua](examples/init.lua))
+
+   ```lua
+   hs.loadSpoon("HangulToggle")
+   spoon.HangulToggle:configure({ switchMode = "hotkey" }):start()
+
+   hs.loadSpoon("AppFocus")
+   spoon.AppFocus:start()
+   ```
+
+4. 시스템 설정 → 개인정보 보호 및 보안 → **손쉬운 사용** → Hammerspoon 허용 → 메뉴바 Hammerspoon 아이콘 → **Reload Config**
+5. HangulToggle은 macOS 단축키 "이전 입력 소스 선택"을 F18로 지정해야 한다. 미설정이면 시작 시 **안내창**이 뜨고 "시스템 설정 열기" 버튼으로 바로 이동할 수 있다.
+
+### 업데이트
+
+Hammerspoon에는 자동 업데이트가 없다. 새 버전은 이 저장소를 **Watch → Custom → Releases**로 구독하면 GitHub 알림으로 받을 수 있다 (RSS: `https://github.com/creatorKoo/hammerspoon-koo-spoons/releases.atom`).
+적용은 설치와 같다: 새 zip을 풀어 더블클릭 → 교체 확인 → Reload Config. 각 Spoon은 독립 버저닝이라 필요한 것만 갈아끼우면 된다.
+
+### 켜고 끄기
+
+기능을 끄려면 `init.lua`에서 해당 Spoon의 두 줄을 주석 처리하고 저장 후 Reload Config. 잠깐 멈추려면 터미널에서 `hs -c 'spoon.HangulToggle:stop()'` (다시 켜기: `start()`; `hs` CLI는 `hs.ipc.cliInstall()`로 설치).
+
+### AI 에이전트에 맡기기
+
+Claude Code 같은 코딩 에이전트에게 이 README 주소를 주고 "HangulToggle과 AppFocus 설치해 줘"라고 하면 위 절차를 대신 해준다. 손쉬운 사용 권한 허용과 F18 단축키 지정만 직접 클릭하면 된다.
 
 ## AppFocus
 
@@ -37,7 +68,7 @@
 - **전체화면 코너 배지**: 전체화면 창(메뉴바 숨김)일 때 화면 우상단에 현재 입력소스를 아주 투명하게 상시 표시. 창모드에선 메뉴바에 한/영이 보이므로 자동 숨김. 모니터 연결/해제 시에도 자동 복구
 - Spotlight는 활성화 이벤트를 내지 않아 상시 AX 관찰자로 감지 — 열리면 (기본값) 영문 전환, 닫히면 이전 소스 복원
 - 텍스트 필드 포커스 변경만 반응(타이핑/캐럿 이동은 무시), 앱 전환은 항상 표시
-- 커스터마이즈: `:configure({ duration = 0.8, size = 64, alpha = 0.45 })`(중앙 배지 표시시간·크기·투명도), `spotlightForceSource = nil`(Spotlight 자동전환 끔), `cornerBadge=false`(코너 배지 끔), `cornerFullscreenOnly=false`(창모드에서도 코너 배지), `cornerAlpha`·`cornerSize`·`cornerMargin`/`cornerMarginTop`(코너 배지 우측·상단 여백, 상단은 메뉴바 아래 기준), `labelFor(sourceID)`(배지 글자)
+- 커스터마이즈: `:configure({ duration = 0.8, size = 64, alpha = 0.45 })`(중앙 배지 표시시간·크기·투명도), `spotlightForceSource = false`(Spotlight 자동전환 끔 — `nil`은 Lua 특성상 무효), `cornerBadge=false`(코너 배지 끔), `cornerFullscreenOnly=false`(창모드에서도 코너 배지), `cornerAlpha`·`cornerSize`·`cornerMargin`/`cornerMarginTop`(코너 배지 우측·상단 여백, 상단은 메뉴바 아래 기준), `labelFor(sourceID)`(배지 글자)
 
 ## WindowFit
 
@@ -47,41 +78,46 @@
 - 크기를 스스로 복원하는 앱(Citrix 등) 대비: `applyDelay`(기본 0.3초) 후 적용 + 1초 뒤 1회 재확인
 - 지금 떠 있는 창 일괄 정리: `hs -c 'spoon.WindowFit:applyAll()'`
 
-## 설치
+## 개발자 설치 (clone + 심볼릭 링크)
+
+Spoon을 고쳐 쓰거나 기여하려면 zip 대신 저장소를 링크한다.
 
 ```sh
-./install.sh
+git clone https://github.com/creatorKoo/hammerspoon-koo-spoons.git
+cd hammerspoon-koo-spoons && ./install.sh
 ```
 
-하는 일: Hammerspoon 설치(없으면) → `~/.hammerspoon/Spoons/`에 spoon **심볼릭 링크** → `~/.hammerspoon/init.lua` 없으면 예시 복사 → Karabiner 룰 비활성화(백업).
-
-처음이면: 시스템 설정 → 개인정보 보호 및 보안 → **손쉬운 사용** → Hammerspoon 허용 → Reload Config.
+하는 일: Hammerspoon 설치(없으면) → `~/.hammerspoon/Spoons/`에 각 spoon **심볼릭 링크** → `~/.hammerspoon/init.lua` 없으면 예시 복사. 예시 init.lua는 링크된 저장소를 감시해 `*.lua` 저장 시 자동 리로드한다.
+`--karabiner` 옵션을 주면 선택 프로필의 Karabiner complex rule을 **전부** 비활성화한다(삭제 아님, 백업 생성). 예전 Karabiner 한영/앱전환 룰과 충돌할 때만 쓸 것.
 
 ### 디렉토리 설계
 
 ```
 ~/.hammerspoon/              # 로컬 디렉토리 (git 밖) — HS의 공식 홈
-  init.lua                   # 개인 설정: loadSpoon + 키 매핑 (examples/init.lua 참고)
+  init.lua                   # 개인 설정: loadSpoon + configure (examples/init.lua 참고)
   Spoons/
-    AppFocus.spoon     → 이 repo 링크
-    HangulToggle.spoon → 이 repo 링크
+    HangulToggle.spoon → zip 설치면 복사본, clone 설치면 이 repo 링크
+    AppFocus.spoon
     (서드파티.spoon)          # 다른 spoon을 설치해도 repo와 안 섞임
 ```
 
-repo는 배포 가능한 spoon 소스만 가진다. 개인 키 매핑은 `~/.hammerspoon/init.lua`(로컬)에서 `spoon.AppFocus:configure({...})`로 주입 — spoon 수정 없이 매핑 변경 가능하고, `*.lua` 저장 시 자동 리로드된다.
+repo는 배포 가능한 spoon 소스만 가진다. 개인 키 매핑은 `~/.hammerspoon/init.lua`(로컬)에서 `spoon.X:configure({...})`로 주입한다 — spoon 수정 없이 설정 변경 가능.
 
 ## 배포 / 버저닝 (스푼별)
 
 - 각 spoon은 독립적으로 버저닝: spoon의 `obj.version` 갱신 → **스푼별 태그** `<이름>-v<버전>` (예: `AppFocus-v1.0.0`) → 해당 spoon zip만 첨부한 Release 발행
 - 배포용 zip: `cd Spoons && zip -r AppFocus.spoon.zip AppFocus.spoon` → 받는 쪽은 zip을 풀어 더블클릭하면 Hammerspoon이 자동 설치
-- repo가 공식 Spoons 저장소와 같은 레이아웃이므로, 추후 [SpoonInstall](https://www.hammerspoon.org/Spoons/SpoonInstall.html) 커스텀 저장소 등록이나 공식 저장소 PR도 가능
+- 각 spoon은 단일 `init.lua`로 자립하며 서로 의존하지 않는다. 공식 [Hammerspoon/Spoons](https://github.com/Hammerspoon/Spoons)는 소스를 `Source/`, zip을 `Spoons/`에 두는 구조라 제출 시 그 형식(영어 docstring 포함)에 맞추면 된다
 
 ## 롤백
 
 ```sh
-./uninstall.sh   # Karabiner 룰 재활성화 + spoon 링크 제거
+./uninstall.sh              # clone 설치의 spoon 링크 제거
+./uninstall.sh --karabiner  # + install.sh --karabiner 가 끈 Karabiner 룰 재활성화
 ```
+zip으로 설치했다면 `~/.hammerspoon/Spoons/이름.spoon` 폴더를 지우고 init.lua의 해당 줄을 정리한다.
 
 ## 알려진 한계
 
 - 암호 입력 필드(보안 입력) 중에는 macOS가 이벤트 탭을 차단하므로 그 순간 단축키가 동작하지 않음
+- InputSourceHUD는 Hammerspoon 전역 1슬롯인 `hs.keycodes.inputSourceChanged` 콜백을 점유한다. 같은 콜백을 쓰는 다른 spoon과는 함께 쓸 수 없음

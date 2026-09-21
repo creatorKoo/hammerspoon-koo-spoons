@@ -4,12 +4,21 @@
 #   2) ~/.hammerspoon/Spoons/ 에 이 repo의 spoon들을 심볼릭 링크
 #      (~/.hammerspoon 자체는 로컬 디렉토리 — repo와 분리, 서드파티 spoon과 안 섞임)
 #   3) ~/.hammerspoon/init.lua 없으면 examples/init.lua 복사 (개인 설정 시작점)
-#   4) Karabiner 룰 비활성화 (삭제 아님 — enabled:false, 백업 생성)
-# 롤백: ./uninstall.sh
+#   4) [--karabiner 옵션] 선택 프로필의 Karabiner complex rule 전부 비활성화
+#      (삭제 아님 — enabled:false, 백업 생성). 예전 Karabiner 한영/앱전환 룰과 충돌할 때만 사용.
+# 롤백: ./uninstall.sh [--karabiner]
 set -euo pipefail
 
 REPO="$(cd "$(dirname "$0")" && pwd)"
 KARABINER_JSON="$HOME/.config/karabiner/karabiner.json"
+DO_KARABINER=0
+for arg in "$@"; do
+  case "$arg" in
+    --karabiner) DO_KARABINER=1 ;;
+    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    *) echo "알 수 없는 옵션: $arg (사용: ./install.sh [--karabiner])" >&2; exit 2 ;;
+  esac
+done
 
 if [ ! -d /Applications/Hammerspoon.app ]; then
   echo "==> Hammerspoon 설치"
@@ -34,7 +43,7 @@ if [ ! -f "$HOME/.hammerspoon/init.lua" ]; then
   echo "==> ~/.hammerspoon/init.lua 생성 (예시 복사 — 키 매핑은 이 파일에서 수정)"
 fi
 
-if [ -f "$KARABINER_JSON" ]; then
+if [ "$DO_KARABINER" = 1 ] && [ -f "$KARABINER_JSON" ]; then
   if /usr/bin/jq -e '[.profiles[] | select(.selected == true) | .complex_modifications.rules[]? | select(.enabled != false)] | length > 0' "$KARABINER_JSON" >/dev/null; then
     cp "$KARABINER_JSON" "$KARABINER_JSON.pre-hammerspoon.bak"
     tmp="$(mktemp "$HOME/.config/karabiner/karabiner.json.XXXXXX")"
@@ -43,6 +52,8 @@ if [ -f "$KARABINER_JSON" ]; then
     mv "$tmp" "$KARABINER_JSON"   # 같은 디렉토리 rename → Karabiner가 자동 리로드
     echo "==> Karabiner 룰 비활성화 (백업: karabiner.json.pre-hammerspoon.bak)"
   fi
+elif [ -f "$KARABINER_JSON" ]; then
+  echo "==> Karabiner 설정은 건드리지 않음 (충돌하는 룰이 있으면 ./install.sh --karabiner)"
 fi
 
 mkdir -p "$HOME/.local/state/app-focus"
