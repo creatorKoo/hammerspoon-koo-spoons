@@ -20,7 +20,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "AppFocus"
-obj.version = "1.1.0"
+obj.version = "1.1.1"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -330,6 +330,7 @@ function obj:configure(opts)
 end
 
 function obj:start()
+  self:stop()  -- 중복 start 방지: 이전 탭·오버레이를 먼저 정리
   loadUsage()
   rebuildLetterMap()
 
@@ -376,6 +377,7 @@ function obj:stop()
     if tap then tap:stop() end
   end
   self.flagsTap, self.keyTap, self.keyUpTap = nil, nil, nil
+  swallowedUp = {}   -- 정지 시점에 눌려 있던 키의 keyUp을 다음 세션이 삼키지 않도록
   self:hideOverlay()
   return self
 end
