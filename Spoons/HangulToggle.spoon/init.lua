@@ -50,7 +50,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "HangulToggle"
-obj.version = "1.3.0"
+obj.version = "1.3.1"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -194,6 +194,7 @@ function obj:configure(opts)
 end
 
 function obj:start()
+  self:stop()  -- 중복 start 방지: 이전 탭·타이머를 먼저 정리 (start를 두 번 불러도 탭이 겹치지 않음)
   -- rcmd 누름 = 즉시 한/영 전환. 이벤트는 삼켜서 앱이 cmd 자체를 못 보게 함
   self.flagsTap = hs.eventtap.new({ etypes.flagsChanged }, function(e)
     if e:getKeyCode() ~= RIGHT_CMD_KC then return false end
