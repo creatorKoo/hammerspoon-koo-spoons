@@ -35,6 +35,10 @@
 --- 않는다: defaults write만으로는 WindowServer의 실제 등록이 갱신되지 않고(재로그인 필요),
 --- 즉시 반영은 비공개 CGS API가 필요해 배포용 스푼에 넣기 부적절하다. 시스템 설정 UI로 바꾸면
 --- 즉시 반영되므로 그 화면을 열어주는 데까지만 한다.
+--- v1.3.2는 판정에서 값의 타입까지 본다. 터미널에서 `defaults write`의 old-style 구문으로 넣은 항목은
+--- 값이 전부 문자열("1", "79")로 저장되는데, macOS는 재로그인 때 이런 항목을 무시하고 기본값(ctrl+space)으로
+--- 등록한다 — 라이브 등록을 따로 해두면 그 세션 동안은 동작하다가 재부팅 후 한/영이 조용히 멈춘다(실측: 같은
+--- plist의 정상 타입 커스텀 단축키는 그대로 로드됨). 이전엔 tonumber로 문자열도 '설정됨'으로 봐서 안내창마저 뜨지 않았다.
 --- 한계: eventtap이 막히는 구간(암호 필드 등 보안 입력, OS가 탭을 비활성화한 순간)에는
 --- 오른쪽 command가 다시 평범한 ⌘로 동작한다. 드라이버 단계 리맵(hidutil/Karabiner)만이
 --- 그것까지 막을 수 있다.
@@ -50,7 +54,7 @@ local obj = {}
 obj.__index = obj
 
 obj.name = "HangulToggle"
-obj.version = "1.3.1"
+obj.version = "1.3.2"
 obj.author = "GooBeom Jeoung"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
@@ -117,9 +121,11 @@ function obj:hotkeyConfigured()
   if not okParse or type(t) ~= "table" then return nil end
   local e = t.AppleSymbolicHotKeys and t.AppleSymbolicHotKeys[HOTKEY_PREV_INPUT_SOURCE]
   if not e then return false end                     -- 항목 없음 = 기본값(ctrl+space, 꺼짐)
-  local enabled = tonumber(e.enabled) == 1 or e.enabled == true
+  -- tonumber로 변환하지 않는다: 문자열("1", "79")로 저장된 항목은 macOS가 재로그인 때 무시하므로
+  -- 미설정으로 봐야 한다(설계 노트 v1.3.2). Lua의 ==는 문자열과 숫자를 같게 보지 않는다.
+  local enabled = e.enabled == true or e.enabled == 1
   local params = e.value and e.value.parameters
-  local keycode = params and tonumber(params[2])
+  local keycode = params and params[2]
   return enabled and keycode == want
 end
 
